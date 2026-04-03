@@ -2,7 +2,7 @@
 //  API PROXY — todas las llamadas van al worker de Cloudflare
 // ============================================================
 // IMPORTANTE: Cambiar esta URL después de deployar el worker
-const API_BASE = localStorage.getItem("fluentia_api_url") || "https://fluentia-api.TU_USUARIO.workers.dev";
+const API_BASE = "https://fluentia-api.jlgonzalez-4ee.workers.dev";
 
 // ============================================================
 //  TEXT-TO-SPEECH — Aria speaks aloud
