@@ -184,6 +184,115 @@ let apiKey         = localStorage.getItem("claude_api_key") || "";
 let chatHistory    = [];
 
 // ============================================================
+//  ADAPTIVE TUTOR — Estado de sesión
+// ============================================================
+let tutorPhase     = localStorage.getItem("tutor_phase") || "assessment"; // assessment, classifying, teaching, conversation
+let userLevel      = localStorage.getItem("tutor_level") || "";           // A1, A2, B1, B2, C1
+let assessmentStep = parseInt(localStorage.getItem("tutor_step") || "0"); // 0-3 (4 preguntas)
+let assessmentAnswers = JSON.parse(localStorage.getItem("tutor_answers") || "[]");
+
+function saveTutorState() {
+  localStorage.setItem("tutor_phase", tutorPhase);
+  localStorage.setItem("tutor_level", userLevel);
+  localStorage.setItem("tutor_step", assessmentStep.toString());
+  localStorage.setItem("tutor_answers", JSON.stringify(assessmentAnswers));
+  updateTutorStatus();
+}
+
+function updateTutorStatus() {
+  const el = document.getElementById("tutor-status");
+  if (!el) return;
+  if (userLevel) {
+    el.innerHTML = `<span class="status-dot"></span> en línea · Nivel ${userLevel}`;
+  } else if (tutorPhase === "assessment") {
+    el.innerHTML = `<span class="status-dot"></span> en línea · Evaluando nivel...`;
+  } else {
+    el.innerHTML = `<span class="status-dot"></span> en línea · Tutor de Inglés IA`;
+  }
+}
+
+function resetTutor() {
+  tutorPhase = "assessment";
+  userLevel = "";
+  assessmentStep = 0;
+  assessmentAnswers = [];
+  chatHistory = [];
+  saveTutorState();
+}
+
+function getSystemPrompt() {
+  if (tutorPhase === "assessment") {
+    return `You are George, a friendly AI English tutor for Spanish speakers. You are currently evaluating the user's English level.
+
+You must ask EXACTLY 4 questions, ONE AT A TIME. You are on question ${assessmentStep + 1} of 4.
+
+THE 4 QUESTIONS (ask only the current one):
+1. "Hi! I'm George, your English tutor. Let's start with a quick assessment. Tell me: How would you introduce yourself in English? (Just say your name, age, and what you do)"
+2. "Great! Now a grammar question: Can you complete this sentence? 'Yesterday, I ___ (go) to the store and ___ (buy) some groceries.' Write the full sentence."
+3. "Nice! Vocabulary time: What does the word 'deadline' mean? Can you use it in a sentence?"
+4. "Last one! Read this situation and answer: 'Your friend says: I've been feeling under the weather lately.' What does your friend mean? How would you respond to them?"
+
+RULES:
+- Ask ONLY question number ${assessmentStep + 1}. Do NOT skip ahead.
+- After each answer, give brief encouraging feedback (1 sentence) then ask the next question.
+- Use format: English text first, then [ES], then Spanish translation.
+- Keep feedback SHORT — max 2 sentences per language.
+- If this is question 1, start with the greeting and question 1.
+- Do NOT classify the level yet. Just ask the question.`;
+  }
+
+  if (tutorPhase === "classifying") {
+    return `You are George, an AI English tutor. You just finished a 4-question assessment. Analyze the user's answers and classify their level.
+
+USER'S ANSWERS:
+${assessmentAnswers.map((a, i) => `Q${i + 1}: ${a}`).join("\n")}
+
+TASK:
+1. Classify the user as: A1 (Beginner), A2 (Elementary), B1 (Intermediate), B2 (Upper-Intermediate), or C1 (Advanced).
+2. Explain briefly IN SPANISH why you gave that level.
+3. Then immediately start a micro-lesson appropriate for their level.
+
+LEVEL-BASED TEACHING STYLE:
+- A1-A2: Teach mostly in Spanish with English phrases. Simple vocabulary and grammar.
+- B1-B2: Teach mostly in English with Spanish support. More complex grammar and expressions.
+- C1: Teach entirely in English. Advanced topics, idioms, nuanced language.
+
+MICRO-LESSON FORMAT:
+- State the objective clearly
+- Brief explanation (2-3 sentences max)
+- 2 examples
+- 1 interactive exercise (ask the user to try something)
+
+FORMAT: English first, then [ES], then Spanish.
+Keep it concise. No long paragraphs.`;
+  }
+
+  // teaching & conversation phases
+  const levelStyle = {
+    "A1": "Teach in Spanish with basic English words and phrases. Very simple. Always translate everything.",
+    "A2": "Teach mostly in Spanish, introduce English sentences. Translate all English to Spanish.",
+    "B1": "Teach in English with Spanish support for difficult concepts. Brief Spanish translations.",
+    "B2": "Teach mostly in English. Only use Spanish for complex grammar explanations.",
+    "C1": "Teach entirely in English. No Spanish unless the user asks."
+  };
+
+  return `You are George, a friendly and motivating AI English tutor. The user's level is ${userLevel || "B1"}.
+
+TEACHING STYLE: ${levelStyle[userLevel] || levelStyle["B1"]}
+
+RULES:
+1. Answer ONLY what was asked. Be concise — 1-3 sentences per language max.
+2. If the user makes an error, correct it and explain WHY briefly.
+3. Dynamically adjust: if the user struggles, simplify. If they do well, challenge them more.
+4. Format: English first, then [ES], then Spanish translation.
+5. Include interactive exercises when appropriate — ask the user to practice.
+6. Be encouraging and motivating. Celebrate progress.
+7. If the user says "reiniciar" or "reset" or "new test", start a new assessment.
+
+NEVER give long lists or multiple options unless asked. Be short and precise.`;
+}
+
+// ============================================================
 //  TABS
 // ============================================================
 let chatGreeted = false;
@@ -199,7 +308,21 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
       if (hdrVideo) hdrVideo.play().catch(() => {});
       if (!chatGreeted) {
         chatGreeted = true;
-        setTimeout(() => ariaSpeak("Hello! I'm George, your AI English tutor. How can I help you today?"), 600);
+        if (userLevel && tutorPhase === "teaching") {
+          // Ya tiene nivel — saludo de continuación
+          const greeting = `Welcome back! Your level is ${userLevel}. Let's keep practicing!\n[ES]\n¡Bienvenido de vuelta! Tu nivel es ${userLevel}. ¡Sigamos practicando! (Escribe "reiniciar" para hacer el test de nuevo)`;
+          setTimeout(() => {
+            addMessage(greeting, "bot");
+            ariaSpeak(`Welcome back! Your level is ${userLevel}. Let's keep practicing!`);
+          }, 600);
+        } else {
+          // Primera vez o reset — iniciar evaluación
+          tutorPhase = "assessment";
+          assessmentStep = 0;
+          assessmentAnswers = [];
+          saveTutorState();
+          setTimeout(() => startAssessment(), 600);
+        }
       }
     }
     document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
@@ -445,10 +568,89 @@ function addMessage(text, role, typing = false) {
   return wrap;
 }
 
+async function startAssessment() {
+  if (!apiKey) {
+    addMessage("Para usar el Chat con IA necesitas configurar tu API Key de Claude. Haz clic en ⚙️ arriba a la derecha.", "bot");
+    return;
+  }
+  const typingEl = addMessage("", "bot", true);
+  try {
+    const reply = await callClaude([], getSystemPrompt(), 300);
+    typingEl.remove();
+    addMessage(reply, "bot");
+    chatHistory.push({ role: "assistant", content: reply });
+    const englishPart = reply.includes("[ES]") ? reply.split("[ES]")[0].trim() : reply;
+    ariaSpeak(englishPart);
+  } catch (err) {
+    typingEl.remove();
+    addMessage(`Error: ${err.message}. Verifica tu API Key en ⚙️.`, "bot");
+  }
+}
+
+async function callClaude(messages, systemPrompt, maxTokens = 250) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: messages
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  let reply = data.content[0].text;
+
+  // Auto-traducción si no incluye [ES]
+  if (!reply.includes("[ES]")) {
+    try {
+      const trRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 200,
+          system: "Translate the following English text to natural Spanish. Only output the translation, nothing else.",
+          messages: [{ role: "user", content: reply }]
+        })
+      });
+      if (trRes.ok) {
+        const trData = await trRes.json();
+        reply = reply + "\n[ES]\n" + trData.content[0].text;
+      }
+    } catch { }
+  }
+  return reply;
+}
+
 async function sendMessage(text) {
   text = text.trim();
   if (!text) return;
   chatInput.value = "";
+
+  // Comando reiniciar
+  if (/^(reiniciar|reset|new test|nuevo test)$/i.test(text)) {
+    resetTutor();
+    chatContainer.innerHTML = "";
+    chatGreeted = false;
+    addMessage("Reiniciando evaluación...\n[ES]\nRestarting assessment...", "bot");
+    setTimeout(() => startAssessment(), 800);
+    return;
+  }
 
   addMessage(text, "user");
   chatHistory.push({ role: "user", content: text });
@@ -458,83 +660,46 @@ async function sendMessage(text) {
     return;
   }
 
-  const typingEl = addMessage("", "bot", true);
+  // Registrar respuesta durante evaluación
+  if (tutorPhase === "assessment") {
+    assessmentAnswers.push(text);
+    assessmentStep++;
+    saveTutorState();
 
-  // Start speaking animation on Aria
+    // Si completó las 4 preguntas → clasificar
+    if (assessmentStep >= 4) {
+      tutorPhase = "classifying";
+      saveTutorState();
+    }
+  }
+
+  const typingEl = addMessage("", "bot", true);
   const ariaSvg = document.getElementById("aria-svg");
   if (ariaSvg) ariaSvg.classList.add("speaking");
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 150,
-        system: `You are George, a concise English tutor for Spanish speakers.
+    let reply;
 
-RULES:
-1. Answer ONLY what was asked. No extras, no lists, no alternatives unless requested.
-2. Keep it to 1-2 sentences per language. Be direct.
-3. Format: English answer first, then [ES], then Spanish translation.
+    if (tutorPhase === "classifying") {
+      // Fase 2: Clasificar nivel y dar primera lección
+      reply = await callClaude(chatHistory, getSystemPrompt(), 500);
 
-Example — user asks "como se dice tengo hambre":
-"I'm hungry" — that's how you say it naturally.
-[ES]
-"Tengo hambre" se dice "I'm hungry".
-
-Another example — user writes bad English:
-You wrote "I go yesterday" — it should be "I went yesterday" because it's past tense.
-[ES]
-Escribiste "I go yesterday" — debería ser "I went yesterday" porque es pasado.
-
-NEVER give long lists or multiple options unless the user asks for them. Be short and precise.`,
-        messages: chatHistory
-      })
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `HTTP ${res.status}`);
-    }
-
-    const data  = await res.json();
-    let reply = data.content[0].text;
-
-    // Si el modelo no incluyó [ES], obtener traducción automática
-    if (!reply.includes("[ES]")) {
-      try {
-        const trRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-            "anthropic-dangerous-direct-browser-access": "true"
-          },
-          body: JSON.stringify({
-            model: "claude-haiku-4-5-20251001",
-            max_tokens: 200,
-            system: "Translate the following English text to natural Spanish. Only output the translation, nothing else.",
-            messages: [{ role: "user", content: reply }]
-          })
-        });
-        if (trRes.ok) {
-          const trData = await trRes.json();
-          reply = reply + "\n[ES]\n" + trData.content[0].text;
-        }
-      } catch { /* usar respuesta sin traducción */ }
+      // Extraer nivel de la respuesta
+      const levelMatch = reply.match(/\b(A1|A2|B1|B2|C1)\b/);
+      if (levelMatch) {
+        userLevel = levelMatch[1];
+        tutorPhase = "teaching";
+        saveTutorState();
+      }
+    } else {
+      // Fases 1, 3 y 4: evaluación, enseñanza, conversación
+      const maxTk = tutorPhase === "assessment" ? 300 : 250;
+      reply = await callClaude(chatHistory, getSystemPrompt(), maxTk);
     }
 
     typingEl.remove();
     addMessage(reply, "bot");
     chatHistory.push({ role: "assistant", content: reply });
-    // Solo leer la parte en inglés en voz alta
     const englishPart = reply.includes("[ES]") ? reply.split("[ES]")[0].trim() : reply;
     ariaSpeak(englishPart);
 
@@ -676,3 +841,6 @@ document.querySelectorAll(".chip").forEach(chip => {
     observer.observe(chatContainer, { childList: true, subtree: true });
   }
 })();
+
+// Mostrar nivel guardado al cargar
+updateTutorStatus();

@@ -199,7 +199,7 @@
           </div>
           <div class="wa-header-info">
             <div class="wa-header-name">George</div>
-            <div class="wa-header-status"><span class="status-dot"></span> en línea · Tutor de Inglés IA</div>
+            <div class="wa-header-status" id="tutor-status"><span class="status-dot"></span> en línea · Tutor de Inglés IA</div>
           </div>
           <button id="tts-toggle-btn" class="tts-btn">🔊 Voz</button>
         </div>
@@ -211,16 +211,6 @@
             <div class="wa-bg-overlay"></div>
           </div>
           <div class="chat-container" id="chat-container">
-            <div class="chat-message bot">
-              <div class="bubble">
-                Hello! I'm George, your AI English tutor! 👋<br><br>
-                You can:<br>
-                • Write in Spanish → I'll translate and explain<br>
-                • Chat in English → I'll correct your mistakes<br>
-                • Ask about any word or phrase<br><br>
-                What would you like to do? 😊
-              </div>
-            </div>
           </div>
         </div>
 
@@ -241,10 +231,10 @@
             </button>
           </div>
           <div class="suggestions">
-            <button class="chip">How do I introduce myself?</button>
+            <button class="chip">Reiniciar test</button>
             <button class="chip">Corrige: I go to school yesterday</button>
             <button class="chip">¿Cómo se dice "sin embargo"?</button>
-            <button class="chip">Teach me 3 useful phrases</button>
+            <button class="chip">Dame una lección</button>
           </div>
         </div>
 
@@ -253,7 +243,7 @@
 
   </main>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
   <script>
     // Registrar Service Worker para PWA
     if ('serviceWorker' in navigator) {

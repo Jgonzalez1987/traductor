@@ -1,9 +1,9 @@
-const CACHE_NAME = 'englishai-v3';
+const CACHE_NAME = 'englishai-v4';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './style.css?v=6',
-  './app.js?v=4',
+  './app.js?v=5',
   './manifest.json',
   './Fondo.mp4',
   './icons/icon-192.svg',
