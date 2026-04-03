@@ -119,12 +119,8 @@ header {
 
 .logo-icon {
   width: 34px; height: 34px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--purple) 0%, var(--pink) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 16px rgba(124,111,255,0.4);
+  border-radius: 8px;
+  object-fit: contain;
   flex-shrink: 0;
 }
 
