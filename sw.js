@@ -1,4 +1,4 @@
-const CACHE_NAME = 'englishai-v6';
+const CACHE_NAME = 'fluentia-v1';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -6,8 +6,8 @@ const STATIC_ASSETS = [
   './app.js?v=7',
   './manifest.json',
   './Fondo.mp4',
-  './icons/icon-192.svg',
-  './icons/icon-512.svg'
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 // Instalar — cachear archivos estáticos

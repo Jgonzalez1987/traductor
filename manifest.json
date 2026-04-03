@@ -1,15 +1,15 @@
 {
-  "name": "EnglishAI — Aprende inglés con IA",
-  "short_name": "EnglishAI",
+  "name": "FluentIA — Tu tutor de inglés",
+  "short_name": "FluentIA",
   "description": "Tu tutor de inglés con inteligencia artificial",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#0b3d2e",
+  "theme_color": "#2884f4",
   "background_color": "#06060f",
   "icons": [
-    { "src": "icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "icons/icon-maskable.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
